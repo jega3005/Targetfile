@@ -1,0 +1,93 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.IO;
+using System.Timers;
+
+
+namespace Targetfile
+{
+    class Program
+    {
+        private static string targetFilePath = @"D:\path\targetfile.txt";
+        private static string lastReadContent = string.Empty;
+        private static FileSystemWatcher fileWatcher;
+        private static Timer checkTimer;
+
+        static void Main(string[] args)
+        {
+            fileWatcher = new FileSystemWatcher(Path.GetDirectoryName(targetFilePath))
+            {
+                Filter = Path.GetFileName(targetFilePath),
+                NotifyFilter = NotifyFilters.LastWrite
+            };
+
+            fileWatcher.Changed += OnChanged;
+            fileWatcher.EnableRaisingEvents = true;
+
+
+            checkTimer = new Timer(15000);
+            checkTimer.Elapsed += OnTimedEvent;
+            checkTimer.AutoReset = true;
+            checkTimer.Enabled = true;
+
+            if (File.Exists(targetFilePath))
+            {
+                lastReadContent = File.ReadAllText(targetFilePath);
+            }
+
+            Console.WriteLine("Monitoring started. Press enter to exit.");
+            Console.ReadLine();
+
+            checkTimer.Stop();
+            checkTimer.Dispose();
+            fileWatcher.EnableRaisingEvents = false;
+            fileWatcher.Dispose();
+        }
+
+        private static void OnChanged(object source, FileSystemEventArgs e)
+        {
+
+            Console.WriteLine($"{e.ChangeType} detected on {e.FullPath} at {DateTime.Now}");
+        }
+
+        private static void OnTimedEvent(Object source, ElapsedEventArgs e)
+        {
+            if (File.Exists(targetFilePath))
+            {
+                string currentContent = File.ReadAllText(targetFilePath);
+                if (currentContent != lastReadContent)
+                {
+                    Console.WriteLine($"Change detected at {DateTime.Now}:");
+                    Console.WriteLine(GetChanges(lastReadContent, currentContent));
+                    lastReadContent = currentContent;
+                }
+            }
+            else
+            {
+                Console.WriteLine($"File not found: {targetFilePath}");
+            }
+        }
+
+        private static string GetChanges(string oldContent, string newContent)
+        {
+            if (oldContent == newContent) return "No changes detected.";
+
+            var oldLines = oldContent.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+            var newLines = newContent.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
+
+            var changes = new System.Text.StringBuilder();
+            for (int i = 0; i < newLines.Length; i++)
+            {
+                if (i >= oldLines.Length || oldLines[i] != newLines[i])
+                {
+                    changes.AppendLine($"Line {i + 1}: {newLines[i]}");
+                }
+            }
+            return changes.ToString();
+        }
+    }
+
+}
